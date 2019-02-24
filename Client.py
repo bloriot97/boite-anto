@@ -6,12 +6,10 @@ from datetime import datetime
 
 import requests
 
-class Client(Thread):
+class Client():
     period = 5
 
     def  __init__(self, ip, port):
-        Thread.__init__(self)
-        self.daemon = True
         self.ip = ip
         self.port = port
         self.inbox = []
@@ -20,6 +18,20 @@ class Client(Thread):
 
     def get_uri(self, path):
         return f'http://{self.ip}:{self.port}/api/v1{path}'
+
+    def send_message(self, to, messages, animation='rainbow'):
+        post_data = {
+            'to': to,
+            'content': messages,
+            'animation': animation
+        }
+        r = requests.post(
+            self.get_uri('/messages'),
+            data = post_data,
+            headers = self.get_headers()
+        )
+        return r.status_code
+
 
     def login(self, username, password):
         post_data = {
@@ -39,20 +51,33 @@ class Client(Thread):
         self.connected = False
 
     def get_inbox(self):
+        self.checkout_inbox()
         return self.inbox
 
     def get_last_update(self):
         return self.last_update
 
     def read_message(self, id):
-        pass
+        r = requests.get(self.get_uri(f'/messages/read/{id}'),
+            headers = self.get_headers()
+        )
+        if r.status_code == 200:
+            return r.json()
+        elif r.status_code == 401:
+            self.connected = False
+            return False
+        return False
 
     def pop_message(self):
-        pass
+        message_info = self.get_inbox().pop()
+        return self.read_message(message_info['_id'])
+
+    def get_headers(self):
+        return {'Authorization': f'Bearer {self.token}'}
 
     def checkout_inbox(self):
         r = requests.get(self.get_uri('/messages/inbox'),
-            headers = {'Authorization': f'Bearer {self.token}'}
+            headers = self.get_headers()
         )
         if r.status_code == 200:
             parsed_res = r.json()
@@ -63,12 +88,3 @@ class Client(Thread):
             self.connected = False
             return False
         return False
-
-    def run(self):
-        """Code à exécuter pendant l'exécution du thread."""
-        while not self.shut_down:
-            if not self.connected:
-                self.login()
-            else:
-                self.checkout_inbox()
-            time.sleep(self.period)
