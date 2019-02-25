@@ -19,17 +19,29 @@ class Client():
     def get_uri(self, path):
         return f'http://{self.ip}:{self.port}/api/v1{path}'
 
+    def add_headers(args):
+        if 'headers' in args:
+            args['headers'] = {
+                **headers,
+                **self.get_headers()
+            }
+        else:
+            args['headers'] = self.get_headers()
+        return args
+
+    def send_post(self, endpoint, **args):
+        return requests.post(
+            self.get_uri(endpoint),
+            **add_headers(args)
+        )
+
     def send_message(self, to, messages, animation='rainbow'):
         post_data = {
             'to': to,
             'content': messages,
             'animation': animation
         }
-        r = requests.post(
-            self.get_uri('/messages'),
-            data = post_data,
-            headers = self.get_headers()
-        )
+        r = self.send_post('/messages', data=post_data)
         return r.status_code
 
 
@@ -38,7 +50,10 @@ class Client():
             'username': username,
             'password': password
         }
-        r = requests.post(self.get_uri('/auth/login'), data = post_data)
+        r = self.send_post(
+            '/auth/login',
+            data = post_data
+        )
         parsed_res = r.json()
         if parsed_res['status'] == 'success':
             self.token = parsed_res['token']
@@ -73,7 +88,10 @@ class Client():
         return self.read_message(message_info['_id'])
 
     def get_headers(self):
-        return {'Authorization': f'Bearer {self.token}'}
+        headers = {}
+        if self.connected:
+            headers['Authorization'] = f'Bearer {self.token}'
+        return headers
 
     def checkout_inbox(self):
         r = requests.get(self.get_uri('/messages/inbox'),
