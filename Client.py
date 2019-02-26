@@ -6,6 +6,11 @@ from datetime import datetime
 
 import requests
 
+def merge_two_dicts(x, y):
+    z = x.copy()   # start with x's keys and values
+    z.update(y)    # modifies z with y's keys and values & returns None
+    return z
+
 class Client():
     period = 5
 
@@ -17,14 +22,14 @@ class Client():
         self.connected = False
 
     def get_uri(self, path):
-        return f'http://{self.ip}:{self.port}/api/v1{path}'
+        return 'http://%s:%s/api/v1%s' % (self.ip, self.port, path)
 
-    def add_headers(args):
+    def add_headers(self, args):
         if 'headers' in args:
-            args['headers'] = {
-                **headers,
-                **self.get_headers()
-            }
+            args['headers'] = merge_two_dicts(
+                headers,
+                self.get_headers()
+            )
         else:
             args['headers'] = self.get_headers()
         return args
@@ -32,7 +37,7 @@ class Client():
     def send_post(self, endpoint, **args):
         return requests.post(
             self.get_uri(endpoint),
-            **add_headers(args)
+            **self.add_headers(args)
         )
 
     def send_message(self, to, messages, animation='rainbow'):
@@ -73,7 +78,7 @@ class Client():
         return self.last_update
 
     def read_message(self, id):
-        r = requests.get(self.get_uri(f'/messages/read/{id}'),
+        r = requests.get(self.get_uri('/messages/read/%s' % id),
             headers = self.get_headers()
         )
         if r.status_code == 200:
@@ -90,7 +95,7 @@ class Client():
     def get_headers(self):
         headers = {}
         if self.connected:
-            headers['Authorization'] = f'Bearer {self.token}'
+            headers['Authorization'] = 'Bearer %s' % self.token
         return headers
 
     def checkout_inbox(self):
