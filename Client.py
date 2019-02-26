@@ -12,8 +12,7 @@ def merge_two_dicts(x, y):
     return z
 
 class Client():
-    period = 5
-
+    
     def  __init__(self, ip, port):
         self.ip = ip
         self.port = port

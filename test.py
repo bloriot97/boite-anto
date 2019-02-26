@@ -2,12 +2,17 @@ import unittest
 import time
 import requests
 
-from Client import Client
+import configparser
+config = configparser.ConfigParser()
+config.read('config.ini')
 
-api_ip= '51.38.235.157'
-api_port = '3003'
-username = 'anto'
-password = 'password'
+from Client import Client
+from Getter import Getter
+
+api_ip= config['TEST']['api_ip']
+api_port = config['TEST']['api_port']
+username = config['TEST']['username']
+password = config['TEST']['password']
 
 class TestClient(unittest.TestCase):
     def test_login_disconnect(self):
@@ -41,6 +46,17 @@ class TestClient(unittest.TestCase):
         new_inbox_len = len(c.get_inbox())
         self.assertEqual(inbox_len - 1, new_inbox_len)
         c.disconnect()
+
+class TestGetter(unittest.TestCase):
+    def test_integration(self):
+        c = Client(api_ip ,api_port)
+        c.login(username, password)
+        c.send_message(username, 'message')
+        g = Getter(api_ip, api_port, username, password)
+        g.start()
+        time.sleep(g.get_period())
+        self.assertGreater(len(g.get_inbox()), 0)
+
 
 if __name__ == '__main__':
     unittest.main()
