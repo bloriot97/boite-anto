@@ -12,7 +12,7 @@ def merge_two_dicts(x, y):
     return z
 
 class Client():
-    
+
     def  __init__(self, ip, port):
         self.ip = ip
         self.port = port
@@ -88,8 +88,10 @@ class Client():
         return False
 
     def pop_message(self):
-        message_info = self.get_inbox().pop()
-        return self.read_message(message_info['_id'])
+        if len(self.get_inbox()) > 0:
+            message_info = self.get_inbox().pop()
+            return self.read_message(message_info['_id'])
+        return None
 
     def get_headers(self):
         headers = {}

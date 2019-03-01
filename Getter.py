@@ -30,11 +30,15 @@ class Getter(threading.Thread):
 	def is_connected(self):
 		return self.client.connected
 
-	def get_inbox(self):
+	def get_inbox(self, force_update=False):
+		if force_update:
+			self.update()
 		return self.inbox
 
 	def pop_message(self):
-		return self.client.pop_message()
+		res = self.client.pop_message()
+		self.update()
+		return res
 
 	def get_period(self):
 		return self.period

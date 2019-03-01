@@ -1,5 +1,6 @@
 import unittest
 import time
+import lorem
 import requests
 
 import configparser
@@ -33,14 +34,14 @@ class TestClient(unittest.TestCase):
         c = Client(api_ip ,api_port)
         c.login(username, password)
         inbox_len = len(c.get_inbox())
-        self.assertEqual(c.send_message(username, 'message'), 200)
+        self.assertEqual(c.send_message(username, lorem.sentence()), 200)
         self.assertEqual(inbox_len + 1, len(c.get_inbox()))
         c.disconnect()
 
     def test_pop_message(self):
         c = Client(api_ip ,api_port)
         c.login(username, password)
-        c.send_message(username, 'message')
+        c.send_message(username, lorem.sentence())
         inbox_len = len(c.get_inbox())
         c.pop_message()
         new_inbox_len = len(c.get_inbox())
@@ -51,7 +52,7 @@ class TestGetter(unittest.TestCase):
     def test_integration(self):
         c = Client(api_ip ,api_port)
         c.login(username, password)
-        c.send_message(username, 'message')
+        c.send_message(username, lorem.sentence())
         g = Getter(api_ip, api_port, username, password)
         g.start()
         time.sleep(g.get_period())

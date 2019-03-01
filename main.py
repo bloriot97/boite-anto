@@ -4,6 +4,7 @@ import time
 import sys
 import random
 import signal
+from enum import Enum
 
 from TouchMouse import TouchMouse
 from LedCircle import LedCircle
@@ -13,18 +14,32 @@ ratio = 480 / 320
 width = 480
 height = 320
 
+import configparser
+config = configparser.ConfigParser()
+config.read('config.ini')
+
+api_ip= config['TEST']['api_ip']
+api_port = config['TEST']['api_port']
+username = config['TEST']['username']
+password = config['TEST']['password']
+
+class ScreenState(Enum):
+	READING = 1
+	WAITING = 2
+
 class pyscope:
 	screen = None
 	def __init__(self):
 		self.mouse = TouchMouse()
 		self.ledCircle = LedCircle()
 		self.ledCircle.start()
-		self.getter = Getter();
+		self.getter = Getter(api_ip, api_port, username, password)
 		self.getter.start()
 
 		self.init_screen()
 		self.init_font()
 
+		self.screen_state = ScreenState.WAITING
 		self.message = ''
 		self.newMessage = False;
 		self.ledCircle.animation = 'off'
@@ -67,13 +82,9 @@ class pyscope:
 		#self.ledCircle.stop()
 		print 'close'
 
-	def updateMessage(self):
-		response = self.getter.get();
-		if ( self.message != response['message']):
-			self.message = response['message']
-			self.newMessage = True
-			print(response, self.newMessage )
-			self.ledCircle.animation = response['animation']
+	def update_inbox(self, force_update=False):
+		#TODO : update new getter
+		self.inbox = self.getter.get_inbox(force_update=force_update);
 
 	def drawText(self, surface, text, color, font, aa=False, bkg=None):
 		y = 10
@@ -115,22 +126,50 @@ class pyscope:
 	def close(self):
 		self.ledCircle.stop()
 
-	def draw(self):
-		self.updateMessage()
+	def pop_message(self):
+		self.message = self.getter.pop_message()
+		self.update_inbox(force_update=True)
+		return self.message
+
+	def update(self):
+		self.update_inbox()
+
 		ev = self.mouse.getEvents()
 		for event in ev:
-
 			if event == 'MOUSEMOTION':
 				self.pos = (int(self.mouse.getX()), int(self.mouse.getY()))
 				print(self.pos)
 			if event == 'MOUSEDOWN':
-				self.newMessage = False
-				self.ledCircle.animation = 'off'
+				if self.screen_state == ScreenState.WAITING:
+					if len(self.inbox) > 0:
+						self.screen_state = ScreenState.READING
+						self.pop_message()
+				elif self.screen_state == ScreenState.READING:
+					if len(self.inbox) > 0:
+						self.pop_message()
+					else:
+						self.screen_state = ScreenState.WAITING
 
+
+	def draw(self):
+		self.update()
 		self.screen.fill((0, 0, 0))
+
+		message = ''
+
+		if self.screen_state == ScreenState.WAITING:
+			if len(self.inbox) > 0:
+				message = 'Vous avez %s nouveaux messages' % str(len(self.inbox))
+				self.ledCircle.animation = self.inbox[0]['animation']
+				self.drawText(self.screen, message, (255, 255, 255), self.font)
+			else:
+				self.ledCircle.animation = 'off'
+		elif self.screen_state == ScreenState.READING:
+			message = self.message['content'] + '(' + str(len(self.inbox)) + ')'
+			self.drawText(self.screen, message, (255, 255, 255), self.font)
+
 		#textsurface = self.font.render(self.message, False, (255, 255, 255))
 		#self.screen.blit(textsurface,((width-textsurface.get_width())/2 ,(height - textsurface.get_height())/2))
-		self.drawText(self.screen, self.message, (255, 255, 255), self.font)
 		pygame.display.update()
 
 out = open('out.log', 'w')
