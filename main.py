@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import os
 import pygame
 import time
@@ -21,11 +23,74 @@ config.read('config.ini')
 api_ip= config['TEST']['api_ip']
 api_port = config['TEST']['api_port']
 username = config['TEST']['username']
-password = config['TEST']['password']
+password  = config['TEST']['password']
 
 class ScreenState(Enum):
 	READING = 1
 	WAITING = 2
+	SETTINGS = 3
+	WRITTING = 4
+
+class Vector2():
+	def __init__(self, x, y):
+		self.x = x
+		self.y = y
+
+class VirtualKeyBoard:
+
+
+	def __init__(self):
+		self.font_size = 60
+		self.buffer_font_size = 32
+		self.font = pygame.font.SysFont('Comic Sans MS', self.font_size)
+		self.buffer_font = pygame.font.SysFont('Comic Sans MS', self.buffer_font_size)
+		self.caps = False
+		self.lines = [
+			'0123456789',
+			'azertyuiop',
+			'qsdfghjklm',
+			'^wxcvbn@.<'
+		]
+		self.pos = Vector2(10, 60)
+		self.buffer_pos = Vector2(13, 15)
+		self.key_size = Vector2(self.font_size * 0.8, self.font_size * 0.8)
+		self.buffer = ''
+		self.last_key_pressed = ''
+
+	def clear(self):
+		self.buffer = ''
+		return self.buffer
+
+	def get_buffer(self):
+		return self.buffer
+
+	def clear(self):
+		self.buffer = ''
+
+	def draw(self, surface):
+		for line_id, line in enumerate(self.lines):
+			for char_id, char in enumerate(line):
+				textsurface = self.font.render(char, False, (255, 255, 255))
+				surface.blit(textsurface, (self.pos.x + self.key_size.x * char_id, self.pos.y + self.key_size.y * line_id))
+		textsurface = self.buffer_font.render(self.buffer, False, (255, 255, 255))
+		surface.blit(textsurface, (self.buffer_pos.x , self.buffer_pos.y))
+
+	def get_key_pressed(self, x, y):
+		key_x = int( ( x - self.pos.x ) / self.key_size.x )
+		key_y = int( ( y - self.pos.y ) / self.key_size.y )
+
+		if key_y < len(self.lines) and key_y >= 0:
+			line = self.lines[key_y]
+			if key_x < len(line) and key_x >= 0:
+				return line[key_x]
+		return None
+
+	def mouse_down(self, x, y):
+		self.last_key_pressed = self.get_key_pressed(x, y)
+		if self.last_key_pressed and self.last_key_pressed not in '^<':
+			self.buffer += self.last_key_pressed
+		elif self.last_key_pressed == '<':
+			self.buffer = self.buffer[:-1]
 
 class pyscope:
 	screen = None
@@ -39,7 +104,9 @@ class pyscope:
 		self.init_screen()
 		self.init_font()
 
-		self.screen_state = ScreenState.WAITING
+		self.keyboard = VirtualKeyBoard()
+
+		self.screen_state = ScreenState.WRITTING
 		self.message = ''
 		self.newMessage = False;
 		self.ledCircle.animation = 'off'
@@ -47,6 +114,7 @@ class pyscope:
 	def init_font(self):
 		pygame.font.init()
 		self.font = pygame.font.SysFont('Comic Sans MS', 32)
+		self.font_big = pygame.font.SysFont('Comic Sans MS', 80)
 
 	def init_screen(self):
 		disp_no = os.getenv('DISPLAY')
@@ -138,7 +206,7 @@ class pyscope:
 		for event in ev:
 			if event == 'MOUSEMOTION':
 				self.pos = (int(self.mouse.getX()), int(self.mouse.getY()))
-				print(self.pos)
+				# print(self.pos)
 			if event == 'MOUSEDOWN':
 				if self.screen_state == ScreenState.WAITING:
 					if len(self.inbox) > 0:
@@ -149,6 +217,8 @@ class pyscope:
 						self.pop_message()
 					else:
 						self.screen_state = ScreenState.WAITING
+				elif self.screen_state == ScreenState.WRITTING:
+					self.keyboard.mouse_down(int(self.mouse.getX()), int(self.mouse.getY()))
 
 
 	def draw(self):
@@ -167,9 +237,15 @@ class pyscope:
 		elif self.screen_state == ScreenState.READING:
 			message = self.message['content'] + '(' + str(len(self.inbox)) + ')'
 			self.drawText(self.screen, message, (255, 255, 255), self.font)
+		elif self.screen_state == ScreenState.SETTINGS:
+			pass
+		elif self.screen_state == ScreenState.WRITTING:
+			self.keyboard.draw(self.screen)
 
-		#textsurface = self.font.render(self.message, False, (255, 255, 255))
-		#self.screen.blit(textsurface,((width-textsurface.get_width())/2 ,(height - textsurface.get_height())/2))
+		if True:
+			textsurface = self.font.render('x', False, (255, 255, 255))
+			self.screen.blit(textsurface,(int(self.mouse.getX()) - 10 , int(self.mouse.getY()) - 16))
+
 		pygame.display.update()
 
 out = open('out.log', 'w')
@@ -189,8 +265,6 @@ def fermer_programme(signal, frame):
 
 signal.signal(signal.SIGINT, fermer_programme)
 
-
-print('test')
 
 scope = pyscope()
 while 1:

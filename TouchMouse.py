@@ -21,7 +21,7 @@ class TouchMouse():
 
     pressed = False
 
-    verbose = True
+    verbose = False
 
     def __init__(self):
         self.device = evdev.InputDevice('/dev/input/event0')
