@@ -30,32 +30,25 @@ class UIElement:
 
 		while text:
 			i = 1
-
 			# determine if the row of text will be outside our area
 			if y + fontHeight > 320:
 				break
-
 			# determine maximum width of line
 			while font.size(text[:i])[0] < 480 and i < len(text):
 				i += 1
-
 			# if we've wrapped the text, then adjust the wrap to the last word
 			if i < len(text):
 				i = text.rfind(' ', 0, i) + 1
-
 			# render the line and blit it to the surface
 			if bkg:
 				image = font.render(text[:i], 1, color, bkg)
 				image.set_colorkey(bkg)
 			else:
 				image = font.render(text[:i], aa, color)
-
 			self.surface.blit(image, (0, y))
 			y += fontHeight + lineSpacing
-
 			# remove the text we just blitted
 			text = text[i:]
-
 		return text
 
 	def mouse_down(self, x, y):
@@ -68,6 +61,8 @@ class VirtualKeyBoard(UIElement):
 
 	def __init__(self, surface):
 		UIElement.__init__(self, surface)
+		self.keyboard_surface = pygame.Surface((460, 300))
+		self.show = False
 		self.font_size = 60
 		self.buffer_font_size = 32
 		self.key_font = pygame.font.SysFont('Comic Sans MS', self.font_size)
@@ -77,13 +72,27 @@ class VirtualKeyBoard(UIElement):
 			'0123456789',
 			'azertyuiop',
 			'qsdfghjklm',
-			'^wxcvbn@.<'
+			'^wxcvbn@.<',
+			'       X V'
 		]
-		self.pos = Vector2(10, 60)
-		self.buffer_pos = Vector2(13, 15)
+		self.pos = Vector2(10, 10)
+		self.buffer_pos = Vector2(3, 5)
 		self.key_size = Vector2(self.font_size * 0.8, self.font_size * 0.8)
 		self.buffer = ''
 		self.last_key_pressed = ''
+		self.input_field = None
+
+	def edit(self, input_field):
+		self.show = True
+		self.input_field = input_field
+		self.buffer = input_field.value
+
+	def done_edit(self):
+		self.input_field.update_value(self.buffer)
+		self.show = False
+
+	def cancel_edit(self):
+		self.show = False
 
 	def clear(self):
 		self.buffer = ''
@@ -96,17 +105,21 @@ class VirtualKeyBoard(UIElement):
 		self.buffer = ''
 
 	def draw(self):
-		UIElement.draw(self)
-		for line_id, line in enumerate(self.lines):
-			for char_id, char in enumerate(line):
-				textsurface = self.key_font.render(char, False, (255, 255, 255))
-				self.surface.blit(textsurface, (self.pos.x + self.key_size.x * char_id, self.pos.y + self.key_size.y * line_id))
-		textsurface = self.buffer_font.render(self.buffer, False, (255, 255, 255))
-		self.surface.blit(textsurface, (self.buffer_pos.x , self.buffer_pos.y))
+		if self.show:
+			UIElement.draw(self)
+			self.keyboard_surface.fill((50, 50, 50))
+			for line_id, line in enumerate(self.lines):
+				for char_id, char in enumerate(line):
+					textsurface = self.key_font.render(char, False, (255, 255, 255))
+					self.keyboard_surface.blit(textsurface, (self.key_size.x * char_id, self.key_size.y * (line_id+1)))
+			textsurface = self.buffer_font.render(self.buffer, False, (255, 255, 255))
+			self.keyboard_surface.blit(textsurface, (self.buffer_pos.x , self.buffer_pos.y))
+			self.surface.blit(self.keyboard_surface, (self.pos.x , self.pos.y))
+
 
 	def get_key_pressed(self, x, y):
 		key_x = int( ( x - self.pos.x ) / self.key_size.x )
-		key_y = int( ( y - self.pos.y ) / self.key_size.y )
+		key_y = int( ( y - self.pos.y ) / self.key_size.y ) - 1
 
 		if key_y < len(self.lines) and key_y >= 0:
 			line = self.lines[key_y]
@@ -115,29 +128,84 @@ class VirtualKeyBoard(UIElement):
 		return None
 
 	def mouse_down(self, x, y):
-		UIElement.mouse_down(self, x, y)
-		self.last_key_pressed = self.get_key_pressed(x, y)
-		if self.last_key_pressed and self.last_key_pressed not in '^<':
-			self.buffer += self.last_key_pressed
-		elif self.last_key_pressed == '<':
-			self.buffer = self.buffer[:-1]
+		if self.show:
+			UIElement.mouse_down(self, x, y)
+			self.last_key_pressed = self.get_key_pressed(x, y)
+			if self.last_key_pressed == None:
+				pass
+			elif self.last_key_pressed == '<':
+				self.buffer = self.buffer[:-1]
+			elif self.last_key_pressed == 'X':
+				self.cancel_edit()
+			elif self.last_key_pressed == 'V':
+				self.done_edit()
+			elif self.last_key_pressed == ' ':
+				pass
+			else:
+				self.buffer += self.last_key_pressed
+
+class Button:
+	def __init__(self):
+		pass
+
+class InputField:
+	def __init__(self, value):
+		self.value = value
+		self.size = Vector2(200, 32)
+		self.font = pygame.font.SysFont('Comic Sans MS', 32)
+		self.surface = pygame.Surface((self.size.x, self.size.y))
+		self.update_surface()
+
+	def get_value(self):
+		return self.value
+
+	def update_value(self, value):
+		self.value = value
+		self.update_surface()
+		return self.get_value()
+
+	def is_mouse_in(self, x, y):
+		return x >= 0 and y >= 0 and x <= self.size.x and y <= self.size.y
+
+	def update_surface(self):
+		textsurface = self.font.render(self.get_value(), False, (255, 255, 255))
+		self.surface.fill((50, 50, 50))
+		self.surface.blit(textsurface, (0, 0))
+		return self.get_surface()
+
+	def get_surface(self):
+		return self.surface
 
 class SettingsScreen(UIElement):
 
 	def __init__(self, surface, config):
 		UIElement.__init__(self, surface)
 		self.config = config
+		self.keyboard = VirtualKeyBoard(self.surface)
+		self.typing = True
+		self.env = 'TEST'
+		self.line_height = 40
+		self.settings = self.config[self.env]
+		self.input_fields = {key:InputField(self.settings[key]) for key in self.settings}
+
+	def mouse_down(self, x, y):
+		self.keyboard.mouse_down(x, y)
+		if not self.keyboard.show:
+			for index, key in enumerate(self.settings):
+				if self.input_fields[key].is_mouse_in(x - 200, y - (10 + index * self.line_height)):
+					self.keyboard.edit(self.input_fields[key])
 
 	def draw(self):
 		UIElement.draw(self)
-		env = 'TEST'
-		line_height = 40
-		settings = self.config[env]
-		for index, key in enumerate(settings):
+		for index, key in enumerate(self.settings):
 			textsurface = self.font.render(key, False, (255, 255, 255))
-			self.surface.blit(textsurface,( 10 , 10 + index * line_height))
-			textsurface = self.font.render(settings[key], False, (255, 255, 255))
-			self.surface.blit(textsurface,( 200 , 10 + index * line_height))
+			self.surface.blit(textsurface,( 10 , 10 + index * self.line_height))
+			self.surface.blit(
+				self.input_fields[key].get_surface(),
+				(200 , 10 + index * self.line_height)
+			)
+		self.keyboard.draw()
+
 
 class Inbox(UIElement):
 	def __init__(self, surface, config, ledCircle):
